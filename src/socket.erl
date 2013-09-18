@@ -264,7 +264,7 @@ parse_address(Options) ->
 				{error, _} = Error ->
 					erlang:error(Error);
 				{ok, IP} ->
-					NewOptions = proplists:delete(ip, Options) ++ [{ip, IP}]
+					proplists:delete(ip, Options) ++ [{ip, IP}]
 			end;
 		_ ->
 			Options
