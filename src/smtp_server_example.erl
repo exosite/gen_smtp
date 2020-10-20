@@ -69,7 +69,7 @@ handle_RCPT_extension(Extension, State) ->
 
 handle_DATA(From, To, Data, State) ->
 	% some kind of unique id
-	Reference = lists:flatten([io_lib:format("~2.16.0b", [X]) || <<X>> <= erlang:md5(term_to_binary(erlang:now()))]),
+	Reference = lists:flatten([io_lib:format("~2.16.0b", [X]) || <<X>> <= erlang:md5(term_to_binary(erlang:timestamp()))]),
 	% if RELAY is true, then relay email to email address, else send email data to console
 	case proplists:get_value(relay, State#state.options, false) of
 		true -> relay(From, To, Data);

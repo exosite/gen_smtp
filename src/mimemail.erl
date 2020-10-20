@@ -36,12 +36,12 @@
 
 -type(mimetuple() :: {binary(), binary(), [{binary(), binary()}], [{binary(), binary()}], binary() | [{binary(), binary(), [{binary(), binary()}], [{binary(), binary()}], binary() | [tuple()]}] | tuple()}).
 
--spec(decode/1 :: (Email :: binary()) -> mimetuple()).
+-spec decode(Email :: binary()) -> mimetuple().
 decode(All) ->
 	{Headers, Body} = parse_headers(All),
 	decode(Headers, Body, ?DEFAULT_OPTIONS).
 
--spec(decode/2 :: (Headers :: [{binary(), binary()}], Body :: binary()) -> mimetuple()).
+-spec decode(Headers :: [{binary(), binary()}], Body :: binary()) -> mimetuple().
 decode(All, Options) when is_binary(All), is_list(Options) ->
 	{Headers, Body} = parse_headers(All),
 	decode(Headers, Body, Options);
@@ -77,7 +77,7 @@ decode(OrigHeaders, Body, Options) ->
 			decode_component(Headers, Body, Other, Options)
 	end.
 
--spec(encode/1 :: (MimeMail :: mimetuple()) -> binary()).
+-spec encode(MimeMail :: mimetuple()) -> binary().
 encode({Type, Subtype, Headers, ContentTypeParams, Parts}) ->
 	{FixedParams, FixedHeaders} = ensure_content_headers(Type, Subtype, ContentTypeParams, Headers, Parts, true),
 	FixedHeaders2 = check_headers(FixedHeaders),
@@ -174,7 +174,7 @@ decode_component(Headers, Body, MimeVsn, Options) when MimeVsn =:= <<"1.0">> ->
 decode_component(_Headers, _Body, Other, _Options) ->
 	erlang:error({mime_version, Other}).
 
--spec(get_header_value/3 :: (Needle :: binary(), Headers :: [{binary(), binary()}], Default :: any()) -> binary() | any()).
+-spec get_header_value(Needle :: binary(), Headers :: [{binary(), binary()}], Default :: any()) -> binary() | any().
 get_header_value(Needle, Headers, Default) ->
 	%io:format("Headers: ~p~n", [Headers]),
 	F =
@@ -189,18 +189,18 @@ get_header_value(Needle, Headers, Default) ->
 			Default
 	end.
 
--spec(get_header_value/2 :: (Needle :: binary(), Headers :: [{binary(), binary()}]) -> binary() | 'undefined').
+-spec get_header_value(Needle :: binary(), Headers :: [{binary(), binary()}]) -> binary() | 'undefined'.
 get_header_value(Needle, Headers) ->
 	get_header_value(Needle, Headers, undefined).
 
--spec(parse_with_comments/1 :: (Value :: binary()) -> binary() | 'error';
-	(Value :: atom()) -> atom()).
+-spec parse_with_comments(Value :: binary()) -> binary() | 'error';
+	(Value :: atom()) -> atom().
 parse_with_comments(Value) when is_binary(Value) ->
 	parse_with_comments(Value, [], 0, false);
 parse_with_comments(Value) ->
 	Value.
 
--spec(parse_with_comments/4 :: (Value :: binary(), Acc :: list(), Depth :: non_neg_integer(), Quotes :: boolean()) -> binary() | 'error').
+-spec parse_with_comments(Value :: binary(), Acc :: list(), Depth :: non_neg_integer(), Quotes :: boolean()) -> binary() | 'error'.
 parse_with_comments(<<>>, _Acc, _Depth, Quotes) when Quotes ->
 	erlang:error(unterminated_quotes);
 parse_with_comments(<<>>, _Acc, Depth, _Quotes) when Depth > 0 ->
@@ -228,8 +228,8 @@ parse_with_comments(<<$", T/binary>>, Acc, Depth, false) -> %"
 parse_with_comments(<<H, Tail/binary>>, Acc, Depth, Quotes) ->
 	parse_with_comments(Tail, [H | Acc], Depth, Quotes).
 
--spec(parse_content_type/1 :: (Value :: 'undefined') -> 'undefined';
-	(Value :: binary()) -> {binary(), binary(), [{binary(), binary()}]}).
+-spec parse_content_type(Value :: 'undefined') -> 'undefined';
+	(Value :: binary()) -> {binary(), binary(), [{binary(), binary()}]}.
 parse_content_type(undefined) ->
 	undefined;
 parse_content_type(String) ->
@@ -248,8 +248,8 @@ parse_content_type(String) ->
 				throw(bad_content_type)
 	end.
 
--spec(parse_content_disposition/1 :: (Value :: 'undefined') -> 'undefined';
-	(String :: binary()) -> {binary(), [{binary(), binary()}]}).
+-spec parse_content_disposition(Value :: 'undefined') -> 'undefined';
+	(String :: binary()) -> {binary(), [{binary(), binary()}]}.
 parse_content_disposition(undefined) ->
 	undefined;
 parse_content_disposition(String) ->
@@ -294,7 +294,7 @@ split_body_by_boundary_(Body, Boundary, Acc) ->
 				[parse_headers(binstr:substr(TrimmedBody, 1, Index - 1)) | Acc])
 	end.
 
--spec(parse_headers/1 :: (Body :: binary()) -> {[{binary(), binary()}], binary()}).
+-spec parse_headers(Body :: binary()) -> {[{binary(), binary()}], binary()}.
 parse_headers(Body) ->
 	case binstr:strpos(Body, "\r\n") of
 		0 ->
@@ -372,7 +372,7 @@ decode_body(Type, Body, InEncoding, OutEncoding) ->
 	iconv:close(CD),
 	Result.
 
--spec(decode_body/2 :: (Type :: binary() | 'undefined', Body :: binary()) -> binary()).
+-spec decode_body(Type :: binary() | 'undefined', Body :: binary()) -> binary().
 decode_body(undefined, Body) ->
 	Body;
 decode_body(Type, Body) ->

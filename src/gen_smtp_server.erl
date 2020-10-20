@@ -56,38 +56,38 @@
 		{'port', pos_integer()} | {'protocol', 'tcp' | 'ssl'} | {'sessionoptions', [any()]}]).
 
 %% @doc Start the listener as a registered process with callback module `Module' on with options `Options' linked to the calling process.
--spec(start_link/3 :: (ServerName :: {'local', atom()} | {'global', any()}, Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}).
+-spec start_link(ServerName :: {'local', atom()} | {'global', any()}, Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}.
 start_link(ServerName, Module, Options) when is_list(Options) ->
 	gen_server:start_link(ServerName, ?MODULE, [Module, Options], []).
 
 %% @doc Start the listener with callback module `Module' on with options `Options' linked to the calling process.
--spec(start_link/2 :: (Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}).
+-spec start_link(Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}.
 start_link(Module, Options) when is_list(Options) ->
 	gen_server:start_link(?MODULE, [Module, Options], []).
 
 %% @doc Start the listener with callback module `Module' with default options linked to the calling process.
--spec(start_link/1 :: (Module :: atom()) -> {'ok', pid()} | 'ignore' | {'error', any()}).
+-spec start_link(Module :: atom()) -> {'ok', pid()} | 'ignore' | {'error', any()}.
 start_link(Module) ->
 	start_link(Module, [[]]).
 
 %% @doc Start the listener as a registered process with callback module `Module' with options `Options' linked to no process.
--spec(start/3 :: (ServerName :: {'local', atom()} | {'global', any()}, Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}).
+-spec start(ServerName :: {'local', atom()} | {'global', any()}, Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}.
 start(ServerName, Module, Options) when is_list(Options) ->
 	gen_server:start(ServerName, ?MODULE, [Module, Options], []).
 
 %% @doc Start the listener with callback module `Module' with options `Options' linked to no process.
--spec(start/2 :: (Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}).
+-spec start(Module :: atom(), Options :: [options()]) -> {'ok', pid()} | 'ignore' | {'error', any()}.
 start(Module, Options) when is_list(Options) ->
 	gen_server:start(?MODULE, [Module, Options], []).
 
 %% @doc Start the listener with callback module `Module' with default options linked to no process.
--spec(start/1 :: (Module :: atom()) -> {'ok', pid()} | 'ignore' | {'error', any()}).
+-spec start(Module :: atom()) -> {'ok', pid()} | 'ignore' | {'error', any()}.
 start(Module) ->
 	start(Module, [[]]).
 
 
 %% @doc Stop the listener pid() `Pid' with reason `normal'.
--spec(stop/1 :: (Pid :: pid()) -> 'ok').
+-spec stop(Pid :: pid()) -> 'ok'.
 stop(Pid) ->
 	gen_server:call(Pid, stop).
 
@@ -105,7 +105,7 @@ sessions(Pid) ->
 %%   [ [{port,25},{protocol,tcp},{domain,"myserver.com"},{address,{0,0,0,0}}],
 %%     [{port,465},{protocol,ssl},{domain,"secure.myserver.com"},{address,{0.0.0.0}}]
 %%   ]
--spec(init/1 :: (Args :: list()) -> {'ok', #state{}} | {'ok', #state{}, 'hibernate'} | {'ok', #state{}, non_neg_integer() | 'infinity'} | 'ignore' | {'stop', any()}).
+-spec init(Args :: list()) -> {'ok', #state{}} | {'ok', #state{}, 'hibernate'} | {'ok', #state{}, non_neg_integer() | 'infinity'} | 'ignore' | {'stop', any()}.
 init([Module, Configurations]) ->
 	DefaultConfig = [{domain, smtp_util:guess_FQDN()}, {address, {0,0,0,0}}, {port, ?PORT}, {protocol, tcp}, {family, inet}],
 	try
@@ -125,10 +125,10 @@ init([Module, Configurations]) ->
 					io:format("~p starting at ~p~n", [?MODULE, node()]),
 					io:format("listening on ~p:~p via ~p~n", [IP, Port, Protocol]),
 					process_flag(trap_exit, true),
-					case socket:listen(Protocol, Port, [binary, {ip, IP}, Family]) of
+					case gen_smtp_socket:listen(Protocol, Port, [binary, {ip, IP}, Family]) of
 						{ok, ListenSocket} -> %%Create first accepting process
-							socket:begin_inet_async(ListenSocket),
-							#listener{port = socket:extract_port_from_socket(ListenSocket),
+							gen_smtp_socket:begin_inet_async(ListenSocket),
+							#listener{port = gen_smtp_socket:extract_port_from_socket(ListenSocket),
 								hostname = Hostname, sessionoptions = SessionOptions,
 								socket = ListenSocket};
 						{error, Reason} ->
@@ -163,13 +163,13 @@ handle_info({inet_async, ListenPort,_, {ok, ClientAcceptSocket}},
 					ListenPort -> L;
 					_ -> []
 				end || L <- Listeners]),
-		{ok, ClientSocket} = socket:handle_inet_async(Listener#listener.socket, ClientAcceptSocket),
+		{ok, ClientSocket} = gen_smtp_socket:handle_inet_async(Listener#listener.socket, ClientAcceptSocket),
 		%% New client connected
 		% io:format("new client connection.~n", []),
 		Sessions = case gen_smtp_server_session:start(ClientSocket, Module, [{hostname, Listener#listener.hostname}, {sessioncount, length(CurSessions) + 1} | Listener#listener.sessionoptions]) of
 			{ok, Pid} ->
 				link(Pid),
-				socket:controlling_process(ClientSocket, Pid),
+				gen_smtp_socket:controlling_process(ClientSocket, Pid),
 				CurSessions ++[Pid];
 			_Other ->
 				CurSessions
@@ -189,7 +189,7 @@ handle_info({'EXIT', From, Reason}, State) ->
 	end;
 handle_info({inet_async, ListenSocket, _, {error, econnaborted}}, State) ->
 	io:format("Client terminated connection with econnaborted~n"),
-	socket:begin_inet_async(ListenSocket),
+	gen_smtp_socket:begin_inet_async(ListenSocket),
 	{noreply, State};
 handle_info({inet_async, _ListenSocket,_, Error}, State) ->
 	error_logger:error_msg("Error in socket acceptor: ~p.~n", [Error]),
@@ -200,7 +200,7 @@ handle_info(_Info, State) ->
 %% @hidden
 terminate(Reason, State) ->
 	io:format("Terminating due to ~p~n", [Reason]),
-	lists:foreach(fun(#listener{socket=S}) -> catch socket:close(S) end, State#state.listeners),
+	lists:foreach(fun(#listener{socket=S}) -> catch gen_smtp_socket:close(S) end, State#state.listeners),
 	ok.
 
 %% @hidden

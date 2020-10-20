@@ -20,7 +20,7 @@
 %%% WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 %% @doc Facilitates transparent gen_tcp/ssl socket handling
--module(socket).
+-module(gen_smtp_socket).
 
 
 -define(TCP_LISTEN_OPTIONS,[  {active, false},
@@ -105,9 +105,7 @@ accept(Socket, Timeout) when is_port(Socket) ->
 	end;
 accept(Socket, Timeout) ->
 	case ssl:transport_accept(Socket, Timeout) of
-		{ok, NewSocket} ->
-			ssl:ssl_accept(NewSocket),
-			{ok, NewSocket};
+		{ok, NewSocket} -> ssl:handshake(NewSocket);
 		Error -> Error
 	end.
 
@@ -153,7 +151,7 @@ setopts(Socket, Options) when is_port(Socket) ->
 setopts(Socket, Options) ->
 	ssl:setopts(Socket, Options).
 
--spec(get_proto/1 :: (Socket :: any()) -> 'tcp' | 'ssl').
+-spec get_proto(Socket :: any()) -> 'tcp' | 'ssl'.
 get_proto(Socket) when is_port(Socket) ->
 	tcp;
 get_proto(_Socket) ->
@@ -193,7 +191,7 @@ to_ssl_server(Socket) ->
 to_ssl_server(Socket, Options) ->
 	to_ssl_server(Socket, Options, infinity).
 to_ssl_server(Socket, Options, Timeout) when is_port(Socket) ->
-	ssl:ssl_accept(Socket, ssl_listen_options(Options), Timeout);
+	ssl:handshake(Socket, ssl_listen_options(Options), Timeout);
 to_ssl_server(_Socket, _Options, _Timeout) ->
 	erlang:error(ssl_connected, "Socket is already using SSL").
 
@@ -275,7 +273,7 @@ extract_port_from_socket({sslsocket,_,{SSLPort,_}}) ->
 extract_port_from_socket(Socket) ->
 	Socket.
 
--spec(set_sockopt/2 :: (ListSock :: port(), CliSocket :: port()) -> 'ok' | any()).
+-spec set_sockopt(ListSock :: port(), CliSocket :: port()) -> 'ok' | any().
 set_sockopt(ListenObject, ClientSocket) ->
 	ListenSocket = extract_port_from_socket(ListenObject),
 	true = inet_db:register_socket(ClientSocket, inet_tcp),
@@ -283,9 +281,9 @@ set_sockopt(ListenObject, ClientSocket) ->
 		{ok, Opts} ->
 			case prim_inet:setopts(ClientSocket, Opts) of
 				ok -> ok;
-				Error -> socket:close(ClientSocket), Error
+				Error -> gen_smtp_socket:close(ClientSocket), Error
 			end;
-		Error -> socket:close(ClientSocket), Error
+		Error -> gen_smtp_socket:close(ClientSocket), Error
 	end.
 
 -ifdef(TEST).
@@ -578,7 +576,7 @@ ssl_upgrade_test_() ->
 			spawn(fun() ->
 			      	{ok, ListenSocket} = listen(tcp, ?TEST_PORT),
 			      	{ok, ServerSocket} = accept(ListenSocket),
-			      	{ok, NewServerSocket} = socket:to_ssl_server(ServerSocket),
+			      	{ok, NewServerSocket} = gen_smtp_socket:to_ssl_server(ServerSocket),
 			      	Self ! NewServerSocket
 			      end),
 			{ok, ClientSocket} = connect(tcp, "localhost", ?TEST_PORT),
